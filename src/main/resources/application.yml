@@ -1,0 +1,60 @@
+spring:
+  main:
+    allow-bean-definition-overriding: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  datasource:
+    url: jdbc:postgresql://localhost:5432/traffic_center
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:thrchghdrp1!}
+    driver-class-name: org.postgresql.Driver
+
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+# ?? ?? ??
+comms:
+  server:
+    port: ${TCP_SERVER_PORT:7070}
+    max-connections: ${MAX_CONNECTIONS:100}
+    auto-start: ${AUTO_START:true}
+  external:
+    api:
+      base-url: ${EXTERNAL_API_URL:http://localhost:8115}
+      timeout: ${API_TIMEOUT:5000}
+      connection-timeout: ${API_CONN_TIMEOUT:3000}
+      enabled: ${API_ENABLED:true}
+
+# ?? ??
+logging:
+  level:
+    com.bspark.comms: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ?? ?????
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
