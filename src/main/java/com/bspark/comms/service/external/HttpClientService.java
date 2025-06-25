@@ -72,7 +72,7 @@ public class HttpClientService {
             HttpEntity<DataPayload> request = new HttpEntity<>(payload, headers);
 
             ResponseEntity<String> response = restTemplate.postForEntity(
-                    baseUrl + "/api/v1/resp-0x12", request, String.class);
+                    baseUrl + "/api/v1/tsc-data", request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 logger.debug("Data sent successfully for client {}: {} bytes", clientId, data.length);

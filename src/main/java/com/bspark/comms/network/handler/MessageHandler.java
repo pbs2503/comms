@@ -40,6 +40,10 @@ public class MessageHandler {
         byte opcode = message.getOpcode();
         byte[] data = message.getData();
 
+        logger.debug("Processing intersection status data from {}", clientId);
+        httpClientService.sendDataAsync(clientId, message.getType(), data);
+
+/*
         switch (message.getType()) {
             case INTERSECTION_STATUS -> {
                 logger.debug("Processing intersection status data from {}", clientId);
@@ -51,6 +55,7 @@ public class MessageHandler {
             default ->
                     handleUserRequestData(message);
         }
+*/
     }
 
     private void handleUserRequestData(Message message) {
