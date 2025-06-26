@@ -1,4 +1,3 @@
-
 package com.bspark.comms.data;
 
 import lombok.Getter;
@@ -38,18 +37,6 @@ public enum MessageType {
     }
 
     /**
-     * opcode로 MessageType 찾기 (int 버전)
-     */
-    public static MessageType fromOpcode(int opcode) {
-        for (MessageType type : values()) {
-            if (type.opcode == opcode) {
-                return type;
-            }
-        }
-        return USER_REQUEST;
-    }
-
-    /**
      * 응답 메시지인지 확인
      */
     public boolean isResponse() {
@@ -63,28 +50,7 @@ public enum MessageType {
         return category == MessageCategory.REQUEST;
     }
 
-    /**
-     * opcode를 16진수 문자열로 반환
-     */
-    public String getOpcodeAsHex() {
-        return String.format("0x%02X", opcode & 0xFF);
-    }
-
-    @Override
-    public String toString() {
-        return String.format("%s(0x%02X)", name(), opcode & 0xFF);
-    }
-
-    @Getter
     public enum MessageCategory {
-        REQUEST("요청"),
-        RESPONSE("응답"),
-        UNKNOWN("알 수 없음");
-
-        private final String description;
-
-        MessageCategory(String description) {
-            this.description = description;
-        }
+        REQUEST, RESPONSE, UNKNOWN
     }
 }

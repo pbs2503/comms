@@ -16,17 +16,23 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    timeout: 2000ms
     lettuce:
       pool:
         max-active: 8
         max-idle: 8
         min-idle: 0
+  data:
+    redis:
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
-# ?? ?? ??
+# 웹 서버 포트 설정 (Spring Boot Tomcat)
+server:
+  port: ${WEB_SERVER_PORT:8114}
+
+# TCP 서버 설정 (별도의 소켓 서버)
 comms:
   server:
     port: ${TCP_SERVER_PORT:7070}

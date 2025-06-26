@@ -9,6 +9,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
 
 @Repository
 public class IpAddressWhitelistDAO {
@@ -18,6 +20,31 @@ public class IpAddressWhitelistDAO {
 
     public IpAddressWhitelistDAO(DataSource dataSource) {
         this.dataSource = dataSource;
+    }
+
+    /**
+     * 허용된 모든 IP 주소 목록 조회
+     */
+    public Set<String> getAllowedIps() {
+        String sql = "SELECT ip_address FROM tsc_schema.tb_tsc_list";
+        Set<String> allowedIps = new HashSet<>();
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                allowedIps.add(rs.getString("ip_address"));
+            }
+
+            logger.info("PostgreSQL에서 {} 개의 허용된 IP 주소 로드", allowedIps.size());
+
+        } catch (SQLException e) {
+            logger.error("허용된 IP 목록 조회 중 데이터베이스 오류: {}", e.getMessage());
+            throw new RuntimeException("화이트리스트 로드 실패", e);
+        }
+
+        return allowedIps;
     }
 
     public boolean isIpAllowed(String ipAddress) {
@@ -38,8 +65,8 @@ public class IpAddressWhitelistDAO {
 
     public void updateStatus(String ipAddress) {
         String sql = "UPDATE tsc_schema.tb_tsc_list " +
-                "SET status = 'online', last_access_time = now() " +
-                "WHERE ip_address = ?";
+                     "SET status = 'online', last_access_time = now() " +
+                     "WHERE ip_address = ?";
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {

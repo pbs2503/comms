@@ -1,4 +1,4 @@
-package com.bspark.comms.event.message;
+package com.bspark.comms.events.message;
 
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;

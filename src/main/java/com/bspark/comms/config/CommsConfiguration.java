@@ -33,6 +33,19 @@ public class CommsConfiguration {
         });
     }
 
+    @Bean(name = "messageProcessorExecutor")
+    public ExecutorService messageProcessorExecutor() {
+        return Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                r -> {
+                    Thread t = new Thread(r, "message-processor");
+                    t.setDaemon(true);
+                    return t;
+                }
+        );
+    }
+
+
     @Bean
     @Primary
     public RestTemplate restTemplate(RestTemplateBuilder builder) {

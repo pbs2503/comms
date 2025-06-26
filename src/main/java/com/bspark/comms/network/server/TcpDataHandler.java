@@ -1,108 +1,71 @@
+
 package com.bspark.comms.network.server;
 
-import com.bspark.comms.core.connection.ConnectionManager;
-import com.bspark.comms.event.connection.ConnectionEstablishedEvent;
-import com.bspark.comms.event.connection.ConnectionTerminatedEvent;
-import com.bspark.comms.event.message.MessageReceivedEvent;
+import com.bspark.comms.data.MessageType;
+import com.bspark.comms.events.DataReceivedEvent;
+import com.bspark.comms.message.MessageProcessor;
+import com.bspark.comms.service.external.HttpClientService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PreDestroy;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.Socket;
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 @Component
 @RequiredArgsConstructor
 public class TcpDataHandler {
-
     private static final Logger logger = LoggerFactory.getLogger(TcpDataHandler.class);
 
-    private final ApplicationEventPublisher eventPublisher;
-    private final ConnectionManager connectionManager;
+    private final MessageProcessor messageProcessor;
+    private final TcpClientService tcpClientService;
+    private final HttpClientService httpClientService; // 추가
 
-    private final ExecutorService clientHandlerExecutor = Executors.newFixedThreadPool(20,
+    private final ExecutorService processingExecutor = Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors(),
             r -> {
-                Thread t = new Thread(r, "tcp-client-handler");
+                Thread t = new Thread(r, "tcp-data-handler");
                 t.setDaemon(true);
                 return t;
-            });
+            }
+    );
 
     /**
-     * 새 클라이언트 연결 처리
+     * 데이터 수신 이벤트 처리
      */
     @EventListener
-    public void handleConnectionEstablished(ConnectionEstablishedEvent event) {
+    public void handleDataReceived(DataReceivedEvent event) {
         String clientId = event.getClientId();
-        Socket socket = event.getSocket();
+        byte[] data = event.getData();
 
-        logger.info("Starting data handler for client: {}", clientId);
-        clientHandlerExecutor.submit(() -> handleClientData(clientId, socket));
+        logger.debug("데이터 수신 처리: {} ({} 바이트)", clientId, data.length);
+
+        // 데이터 처리를 별도 스레드 풀에서 비동기 처리
+        processingExecutor.submit(() -> processReceivedData(clientId, event.getMessageType(), data));
     }
 
     /**
-     * 클라이언트 데이터 처리
+     * 수신된 데이터 처리
      */
-    private void handleClientData(String clientId, Socket socket) {
-        logger.debug("Data handler started for client: {}", clientId);
-
-        try (InputStream inputStream = socket.getInputStream()) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-
-            while (!socket.isClosed() && (bytesRead = inputStream.read(buffer)) != -1) {
-                if (bytesRead > 0) {
-                    byte[] receivedData = Arrays.copyOfRange(buffer, 0, bytesRead);
-
-                    // 연결 활동 업데이트
-                    connectionManager.updateActivity(clientId);
-
-                    // 메시지 수신 이벤트 발행
-                    MessageReceivedEvent messageEvent = new MessageReceivedEvent(
-                            clientId, receivedData, System.currentTimeMillis());
-                    eventPublisher.publishEvent(messageEvent);
-
-                    logger.debug("Data received from client {}: {} bytes", clientId, bytesRead);
-                }
-            }
-
-        } catch (IOException e) {
-            if (!socket.isClosed()) {
-                logger.warn("Error reading data from client {}: {}", clientId, e.getMessage());
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error handling client {}: {}", clientId, e.getMessage(), e);
-        } finally {
-            // 연결 종료 이벤트 발행
-            eventPublisher.publishEvent(new ConnectionTerminatedEvent(
-                    clientId, socket.getInetAddress().getHostAddress(), "Data handler completed"));
-            logger.debug("Data handler completed for client: {}", clientId);
-        }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        logger.info("Shutting down TcpDataHandler...");
-        clientHandlerExecutor.shutdown();
+    private void processReceivedData(String clientId, MessageType messageType, byte[] data) {
         try {
-            if (!clientHandlerExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
-                clientHandlerExecutor.shutdownNow();
-                if (!clientHandlerExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    logger.warn("TcpDataHandler did not terminate gracefully");
-                }
+            // 1. 기존 HTTP API로 데이터 전송 (Redis/외부 시스템으로)
+            logger.debug("외부 API로 데이터 전송: 클라이언트={}, 유형={}", clientId, messageType);
+            httpClientService.sendDataAsync(clientId, messageType, data);
+
+            // 2. 메시지 처리기를 통해 데이터 처리 및 응답 생성
+            byte[] response = messageProcessor.processMessage(clientId, messageType, data);
+
+            // 3. 응답이 있다면 클라이언트에게 전송
+            if (response != null && response.length > 0) {
+                tcpClientService.sendDataToClient(clientId, response);
+                logger.debug("응답 전송 완료: {} ({} 바이트)", clientId, response.length);
             }
-        } catch (InterruptedException e) {
-            clientHandlerExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
+
+        } catch (Exception e) {
+            logger.error("데이터 처리 중 오류 발생 (클라이언트: {}): {}", clientId, e.getMessage(), e);
         }
-        logger.info("TcpDataHandler shutdown completed");
     }
 }

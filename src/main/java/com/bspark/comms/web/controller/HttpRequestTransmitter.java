@@ -1,10 +1,12 @@
 
 package com.bspark.comms.web.controller;
 
-import com.bspark.comms.service.communication.CommunicationService;
+import com.bspark.comms.core.protocol.message.MessageBuilder;
+import com.bspark.comms.network.server.TcpClientService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,13 +16,20 @@ import org.springframework.web.bind.annotation.*;
 public class HttpRequestTransmitter {
 
     private static final Logger logger = LoggerFactory.getLogger(HttpRequestTransmitter.class);
-    private final CommunicationService communicationService;
+
+    @Autowired
+    private final TcpClientService tcpClientService;
+
+    @Autowired
+    private final MessageBuilder messageBuilder;
+
 
     @PostMapping("/broadcast/{opcode}")
     public ResponseEntity<String> broadcastMessage(@PathVariable String opcode) {
         try {
             byte op = parseOpcode(opcode);
-            communicationService.broadcastMessage(op);
+            byte[] data = messageBuilder.buildMessage(op);
+            tcpClientService.sendDataToAllActiveClients(data);
             return ResponseEntity.ok("Broadcast sent successfully");
         } catch (Exception e) {
             logger.error("Broadcast failed: {}", e.getMessage());
@@ -34,7 +43,10 @@ public class HttpRequestTransmitter {
             @PathVariable String opcode) {
         try {
             byte op = parseOpcode(opcode);
-            communicationService.sendMessage(clientId, op);
+            byte[] data = messageBuilder.buildMessage(op);
+
+            tcpClientService.sendDataToClient(clientId, data);
+
             return ResponseEntity.ok("Message sent to " + clientId);
         } catch (Exception e) {
             logger.error("Unicast failed: {}", e.getMessage());
